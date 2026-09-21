@@ -1,0 +1,88 @@
+﻿RewriteEngine On
+
+# ========== HTTPS и без www ==========
+RewriteCond %{HTTPS} off [OR]
+RewriteCond %{HTTP_HOST} ^www\. [NC]
+RewriteCond %{HTTP_HOST} ^(?:www\.)?(.+)$ [NC]
+RewriteRule ^ https://%1%{REQUEST_URI} [R=301,L]
+
+# ========== Убираем .php из адресной строки (кроме API и challenge) ==========
+RewriteCond %{REQUEST_URI} !^/api/ [NC]
+RewriteCond %{REQUEST_URI} !^/challenge\.php$ [NC]
+RewriteCond %{REQUEST_METHOD} !^POST [NC]
+RewriteCond %{THE_REQUEST} \.php [NC]
+RewriteRule ^(.*)\.php$ /$1 [R=301,L]
+
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME}\.php -f
+RewriteRule ^([^\.]+)$ $1.php [NC,L]
+
+RewriteCond %{QUERY_STRING} !^$
+RewriteRule ^api\.php$ - [L]
+
+# ========== Launcher Web API routes ==========
+RewriteRule ^api/(login|info|versions|logout)$ api.php?route=$1 [QSA,L]
+
+# ========== Кастомные страницы ошибок ==========
+ErrorDocument 404 /404.php
+ErrorDocument 500 /505.php
+
+# ========== Кеширование статики ==========
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/jpg "access plus 1 year"
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/gif "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/webp "access plus 1 year"
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType font/woff2 "access plus 1 year"
+    ExpiresByType application/json "access plus 1 day"
+</IfModule>
+
+# ========== Сжатие GZIP ==========
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css text/plain text/xml
+    AddOutputFilterByType DEFLATE application/javascript application/json
+    AddOutputFilterByType DEFLATE application/x-javascript text/javascript
+    AddOutputFilterByType DEFLATE application/rss+xml
+    AddOutputFilterByType DEFLATE application/xml
+</IfModule>
+
+# ========== Защита от DDoS ==========
+<IfModule mod_evasive20.c>
+    DOSHashTableSize    3097
+    DOSPageCount        8
+    DOSSiteCount        40
+    DOSPageInterval     1
+    DOSSiteInterval     1
+    DOSBlockingPeriod   10
+</IfModule>
+
+<IfModule mod_reqtimeout.c>
+    RequestReadTimeout header=5-10,MinRate=500 body=5,MinRate=500
+</IfModule>
+
+<IfModule mod_core.c>
+    LimitRequestBody 1048576
+</IfModule>
+
+# ========== Безопасность ==========
+<IfModule mod_headers.c>
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-Content-Type-Options "nosniff"
+    Header set Referrer-Policy "no-referrer-when-downgrade"
+</IfModule>
+
+Options -Indexes
+
+<FilesMatch "\.(htaccess|htpasswd|ini|log|sh|py|env|sql|bak|zip|tar|gz|7z|rar)$">
+    Require all denied
+</FilesMatch>
+
+<FilesMatch "(config|database|settings|wp-config)\.php$">
+    Require all denied
+</FilesMatch>
+
+RewriteRule ^uploads/.*\.(php|phtml|php3|php4|php5|php7|phar)$ - [F,L]
